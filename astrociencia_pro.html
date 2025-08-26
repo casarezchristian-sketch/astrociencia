@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>AstroCiencia Pro</title>
+<style>
+  body { margin:0; overflow:hidden; background:black; font-family: Arial, sans-serif; }
+  canvas { display:block; margin:0 auto; background:#000; }
+  #questionBox {
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(255,255,255,0.95);
+    padding:20px; border-radius:10px;
+    display:none; max-width:400px; text-align:center;
+  }
+  #questionBox button { margin:5px; padding:5px 10px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<div id="questionBox">
+  <p id="questionText"></p>
+  <div id="options"></div>
+  <button onclick="closeQuestion()">Continuar</button>
+</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let keys = {};
+let meteoritos = [];
+let rayos = [];
+let estrellas = [];
+let planetas = [];
+let score = 0;
+let level = 1;
+let showQuestionLevel = 3;
+let questionsAsked = [];
+const nave = { x: 400, y: 500, width: 50, height: 50, speed: 5 };
+const questions = [
+  { q:"¿El sol es una estrella?", a:["A) Sí","B) No","C) Tal vez"], correct:0, explain:"El sol es efectivamente una estrella."},
+  { q:"¿Qué planeta es rojo?", a:["A) Venus","B) Marte","C) Júpiter"], correct:1, explain:"Marte es llamado planeta rojo debido a su óxido de hierro."},
+  { q:"¿El agua hierve a 100°C?", a:["A) Sí","B) No","C) Solo a nivel del mar"], correct:2, explain:"El agua hierve a 100°C solo a nivel del mar."},
+  { q:"¿Los humanos tienen 5 sentidos?", a:["A) Sí","B) No","C) Depende"], correct:0, explain:"Vista, oído, olfato, gusto y tacto."},
+  { q:"¿La Tierra tiene forma de esfera?", a:["A) Sí","B) No","C) Es plana"], correct:0, explain:"La Tierra es prácticamente esférica."}
+];
+function playBeep(){const audioCtx=new (window.AudioContext||window.webkitAudioContext)();const oscillator=audioCtx.createOscillator();oscillator.type='square';oscillator.frequency.setValueAtTime(600,audioCtx.currentTime);oscillator.connect(audioCtx.destination);oscillator.start();oscillator.stop(audioCtx.currentTime+0.1);}
+document.addEventListener('keydown', e=>keys[e.key]=true);
+document.addEventListener('keyup', e=>keys[e.key]=false);
+document.addEventListener('keydown', e=>{if(e.key===' '){rayos.push({x:nave.x+nave.width/2-5,y:nave.y,width:10,height:20});playBeep();}});
+function createMeteorito(){let size=Math.random()*30+20;meteoritos.push({x:Math.random()*(canvas.width-size),y:-size,width:size,height:size,speed:Math.random()*2+1,color:['orange','red','yellow','pink'][Math.floor(Math.random()*4)]});}
+for(let i=0;i<100;i++){estrellas.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, r:Math.random()*2+1, speed: Math.random()*0.5});}
+for(let i=0;i<5;i++){planetas.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height/2, r:Math.random()*30+20, color:['blue','green','purple','yellow'][i]});}
+function update(){
+  if(keys['ArrowLeft']&&nave.x>0)nave.x-=nave.speed;
+  if(keys['ArrowRight']&&nave.x+nave.width<canvas.width)nave.x+=nave.speed;
+  for(let i=rayos.length-1;i>=0;i--){rayos[i].y-=7;if(rayos[i].y<-20)rayos.splice(i,1);}
+  for(let i=meteoritos.length-1;i>=0;i--){meteoritos[i].y+=meteoritos[i].speed;if(meteoritos[i].y>canvas.height)meteoritos.splice(i,1);}
+  for(let i=meteoritos.length-1;i>=0;i--){
+    for(let j=rayos.length-1;j>=0;j--){
+      if(rectCollision(meteoritos[i],rayos[j])){
+        score++; rayos.splice(j,1);
+        if(meteoritos[i].width>15){
+          meteoritos.push({x:meteoritos[i].x,y:meteoritos[i].y,width:meteoritos[i].width/2,height:meteoritos[i].height/2,speed:meteoritos[i].speed+1,color:meteoritos[i].color});
+          meteoritos.push({x:meteoritos[i].x+meteoritos[i].width/2,y:meteoritos[i].y,width:meteoritos[i].width/2,height:meteoritos[i].height/2,speed:meteoritos[i].speed+1,color:meteoritos[i].color});
+        }
+        meteoritos.splice(i,1);break;
+      }
+    }
+  }
+  if(score>level*5){level++; for(let k=0;k<level;k++)createMeteorito(); if(level%showQuestionLevel===0)showQuestion();}
+  estrellas.forEach(s=>{s.y+=s.speed;if(s.y>canvas.height)s.y=0;});
+}
+function rectCollision(a,b){return a.x<b.x+b.width && a.x+a.width>b.x && a.y<b.y+b.height && a.y+a.height>b.y;}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  estrellas.forEach(s=>{ctx.fillStyle='white';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+  planetas.forEach(p=>{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle='cyan'; ctx.fillRect(nave.x,nave.y,nave.width,nave.height);
+  ctx.fillStyle='yellow'; rayos.forEach(r=>ctx.fillRect(r.x,r.y,r.width,r.height));
+  meteoritos.forEach(m=>{ctx.fillStyle=m.color;ctx.fillRect(m.x,m.y,m.width,m.height);});
+  ctx.fillStyle='white'; ctx.font='20px Arial'; ctx.fillText('Puntos: '+score,10,30); ctx.fillText('Nivel: '+level,10,60);
+}
+const questionBox=document.getElementById('questionBox'); const questionText=document.getElementById('questionText'); const optionsDiv=document.getElementById('options');
+function showQuestion(){let q; do{q=questions[Math.floor(Math.random()*questions.length)];}while(questionsAsked.includes(q)); questionsAsked.push(q); questionText.textContent=q.q; optionsDiv.innerHTML=''; q.a.forEach((opt,i)=>{let btn=document.createElement('button'); btn.textContent=opt; btn.onclick=()=>{if(i===q.correct)alert("¡Correcto!"); else alert("¡Bien hecho! Te recuerdo: "+q.explain); closeQuestion();}; optionsDiv.appendChild(btn);}); questionBox.style.display='block';}
+function closeQuestion(){questionBox.style.display='none';}
+function loop(){update(); draw(); requestAnimationFrame(loop);}
+for(let i=0;i<5;i++)createMeteorito();
+loop();
+</script>
+</body>
+</html>
